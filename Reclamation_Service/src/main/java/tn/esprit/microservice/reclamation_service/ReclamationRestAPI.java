@@ -23,12 +23,12 @@ public class ReclamationRestAPI {
 
     private final QRCodeService qrCodeService;
 
- 
+    private final PdfService pdfService;
 
     public ReclamationRestAPI(ReclamationService reclamationService, QRCodeService qrCodeService, PdfService pdfService) {
         this.reclamationService = reclamationService;
         this.qrCodeService = qrCodeService;
-     
+        this.pdfService = pdfService;
     }
 
     @PostMapping
@@ -75,6 +75,33 @@ public class ReclamationRestAPI {
             return ResponseEntity.badRequest().body("Erreur lors de la génération du QR Code: " + e.getMessage());
         }
     }
+
+ // Endpoint to download all reclamations as a PDF
+    // http://localhost:8083/reclamations/pdf
+
+    @GetMapping("/pdf")
+    public ResponseEntity<ByteArrayResource> downloadAllReclamationsPdf() {
+        try {
+            List<Reclamation> reclamations = reclamationService.getAllReclamations();
+            if (reclamations.isEmpty()) {
+                return ResponseEntity.noContent().build();
+            }
+
+            byte[] pdfBytes = pdfService.generateAllReclamationsPdf(reclamations);
+            ByteArrayResource resource = new ByteArrayResource(pdfBytes);
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=all_reclamations.pdf")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .contentLength(pdfBytes.length)
+                    .body(resource);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+
+
     // Endpoint to serve QR code image
     // http://localhost:8093/reclamations/qr/1.png
     @GetMapping("/qr/{filename:.+}")
