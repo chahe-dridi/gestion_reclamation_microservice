@@ -29,7 +29,7 @@ public class   ReclamationService {
        this.mailSender = mailSender;
    }
 
-    public Reclamation addReclamation(Reclamation reclamation) {
+    /*public Reclamation addReclamation(Reclamation reclamation) {
         // Default values if not set
         if (reclamation.getStatut() == null) {
             reclamation.setStatut("En attente");
@@ -38,8 +38,25 @@ public class   ReclamationService {
             reclamation.setDateReclamation(new java.util.Date());
         }
         return reclamationRepository.save(reclamation);
+    }*/
+
+    // Add reclamation with default values
+    // http://localhost:8083/reclamations
+
+    public Reclamation addReclamation(Reclamation reclamation) {
+        if (reclamation.getStatut() == null) {
+            reclamation.setStatut("En attente");
+        }
+        if (reclamation.getDateReclamation() == null) {
+            reclamation.setDateReclamation(new java.util.Date());
+        }
+
+        Reclamation saved = reclamationRepository.save(reclamation);
+        sendReclamationEmail(saved); // 📧 Send email after saving
+        return saved;
     }
 
+    // Update reclamation
     public Reclamation updateReclamation(int id, Reclamation updatedReclamation) {
         return reclamationRepository.findById(id).map(existing -> {
             existing.setDescription(updatedReclamation.getDescription());
@@ -51,6 +68,7 @@ public class   ReclamationService {
         }).orElseThrow(() -> new RuntimeException("Reclamation non trouvée avec ID: " + id));
     }
 
+    // Delete reclamation
     public void deleteReclamation(int id) {
         if (!reclamationRepository.existsById(id)) {
             throw new RuntimeException("Reclamation non trouvée avec ID: " + id);
@@ -58,9 +76,12 @@ public class   ReclamationService {
         reclamationRepository.deleteById(id);
     }
 
+    // Get all reclamations
+    // http://localhost:8083/reclamations
     public List<Reclamation> getAllReclamations() {
         return reclamationRepository.findAll();
     }
+
 
     public Optional<Reclamation> getReclamationById(int id) {
         return reclamationRepository.findById(id);
@@ -68,9 +89,53 @@ public class   ReclamationService {
 
 
 
+    // filter reclamations by type
+    // http://localhost:8083/reclamations/filter?type=PRODUIT_ENDOMMAGE
+    public List<Reclamation> getReclamationsByType(TypeReclamation type) {
+        return reclamationRepository.findByType(type);
+    }
 
 
-   // Send email to client after reclamation is added
+    // Get reclamation statistics
+    //  http://localhost:8083/reclamations/stats
+    public Map<String, Object> getReclamationStats() {
+        List<Reclamation> all = reclamationRepository.findAll();
+
+        long total = all.size();
+
+        Map<String, Long> byType = all.stream()
+                .collect(Collectors.groupingBy(r -> r.getType().toString(), Collectors.counting()));
+
+        Map<String, Long> byStatus = all.stream()
+                .collect(Collectors.groupingBy(Reclamation::getStatut, Collectors.counting()));
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("total", total);
+        stats.put("byType", byType);
+        stats.put("byStatus", byStatus);
+
+        return stats;
+    }
+
+    // Get monthly reclamation statistics
+    // http://localhost:8083/reclamations/stats/monthly
+    public Map<String, Long> getMonthlyReclamationStats() {
+        List<Reclamation> all = reclamationRepository.findAll();
+
+        return all.stream()
+                .collect(Collectors.groupingBy(
+                        r -> {
+                            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM");
+                            return sdf.format(r.getDateReclamation());
+                        },
+                        Collectors.counting()
+                ));
+    }
+
+
+
+
+    // Send email to client after reclamation is added
     // http://localhost:8083/reclamations
     private void sendReclamationEmail(Reclamation reclamation) {
         try {
@@ -100,6 +165,7 @@ public class   ReclamationService {
 
 
     }
+
 
 
 }
